@@ -1,8 +1,8 @@
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkDeployment
 metadata:
-  name: application-cluster-prod
-  namespace: event-automation
+  name: <deployment-name>
+  namespace: <deployment-namespace>
 spec:
   flinkConfiguration:
     license.use: EventAutomationProduction
