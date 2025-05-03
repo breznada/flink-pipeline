@@ -1,0 +1,89 @@
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: application-cluster-prod
+  namespace: event-automation
+spec:
+  flinkConfiguration:
+    license.use: EventAutomationProduction
+    license.license: L-KCVZ-JL5CRM
+    license.accept: 'true'
+    high-availability.type: org.apache.flink.kubernetes.highavailability.KubernetesHaServicesFactory
+    high-availability.storageDir: 'file:///opt/flink/volume/flink-ha'
+    restart-strategy: failure-rate
+    restart-strategy.failure-rate.max-failures-per-interval: '10'
+    restart-strategy.failure-rate.failure-rate-interval: 10 min
+    restart-strategy.failure-rate.delay: 30 s
+    execution.checkpointing.interval: '5000'
+    execution.checkpointing.unaligned: 'false'
+    state.backend.type: rocksdb
+    state.backend.rocksdb.thread.num: '10'
+    state.backend.incremental: 'true'
+    state.backend.rocksdb.use-bloom-filter: 'true'
+    state.checkpoints.dir: 'file:///opt/flink/volume/flink-cp'
+    state.checkpoints.num-retained: '3'
+    state.savepoints.dir: 'file:///opt/flink/volume/flink-sp'
+    taskmanager.numberOfTaskSlots: '2'
+    table.exec.source.idle-timeout: 30 s
+    security.ssl.enabled: 'false'
+    classloader.resolve-order: parent-first
+  serviceAccount: flink
+  podTemplate:
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: pod-template
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 80
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - flink-native-kubernetes
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: flink-main-container
+          volumeMounts:
+            - name: flink-logs
+              mountPath: /opt/flink/log
+            - name: flink-volume
+              mountPath: /opt/flink/volume
+            - name: flow-volume
+              mountPath: /opt/flink/ibm-flow/flow.json
+              subPath: flow.json
+              readOnly: true
+            - name: flow-volume
+              mountPath: /opt/flink/ibm-flow/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      volumes:
+        - name: flink-logs
+          emptyDir: {}
+        - name: flink-volume
+          persistentVolumeClaim:
+            claimName: ibm-flink-pvc
+        - name: flow-volume
+          secret:
+            secretName: <deployment-secret-name>
+  jobManager:
+    replicas: 1
+    resource:
+      memory: 4096m
+      cpu: 0.5
+  taskManager:
+    resource:
+      memory: 4096m
+      cpu: 2
+  job:
+    jarURI: 'local:///opt/flink/ibm-flow/ibm-ep-flow-deployer.jar'
+    args: []
+    parallelism: 1
+    state: running
+    upgradeMode: savepoint
+    allowNonRestoredState: true
+  mode: native
