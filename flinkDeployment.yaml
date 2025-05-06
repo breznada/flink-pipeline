@@ -66,7 +66,7 @@ spec:
           emptyDir: {}
         - name: flink-volume
           persistentVolumeClaim:
-            claimName: ibm-flink-pvc
+            claimName: ibm-flink-pipeline-pvc
         - name: flow-volume
           secret:
             secretName: <deployment-secret-name>
